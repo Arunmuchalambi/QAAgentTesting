@@ -1,0 +1,35 @@
+{
+  "_description": "Maps repositories and file paths to features/functionality",
+  "_instructions": "Update this file with your actual repository structure",
+  "repositories": {
+    "your-org/your-repo": {
+      "name": "Example Repository",
+      "description": "Replace with your repository mapping",
+      "components": {
+        "src/": {
+          "feature": "Application Code",
+          "description": "Main application source code",
+          "critical": true,
+          "test_types": ["unit", "integration"]
+        }
+      }
+    }
+  },
+  "file_patterns": {
+    "*.controller.ts": {
+      "feature_type": "API Controller",
+      "test_types": ["api", "integration"],
+      "impact": "high"
+    },
+    "*.service.ts": {
+      "feature_type": "Business Logic Service",
+      "test_types": ["unit", "integration"],
+      "impact": "high"
+    },
+    "*.py": {
+      "feature_type": "Python Module",
+      "test_types": ["unit", "integration"],
+      "impact": "medium"
+    }
+  }
+}

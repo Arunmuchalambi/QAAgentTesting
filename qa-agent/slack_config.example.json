@@ -1,0 +1,15 @@
+{
+  "bot_token": "",
+  "channel": "qa-agent",
+  "username": "QA Agent",
+  "icon_url": "",
+  "webhook_url": "",
+  "enabled": false,
+  "notify_on": {
+    "test_execution": true,
+    "test_pass": true,
+    "test_fail": true,
+    "new_jira": false,
+    "pr_detected": false
+  }
+}

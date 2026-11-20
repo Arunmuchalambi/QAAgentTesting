@@ -1,0 +1,9 @@
+{
+  "company": {
+    "name": "Your Company",
+    "description": "Describe your product here",
+    "website": "https://docs.example.com/",
+    "tagline": "Your product tagline"
+  },
+  "features": {}
+}

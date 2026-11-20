@@ -1,0 +1,80 @@
+{
+  "jira_type_detection": {
+    "salesforce": {
+      "keywords": [
+        "salesforce",
+        "sfdc",
+        "apex",
+        "lightning",
+        "lwc",
+        "visualforce",
+        "soql",
+        "trigger",
+        "sf-"
+      ],
+      "components": [
+        "Salesforce",
+        "SFDC",
+        "CRM"
+      ],
+      "projects": [
+        "SF",
+        "SFDC"
+      ]
+    },
+    "sdlc": {
+      "keywords": [
+        "api",
+        "backend",
+        "frontend",
+        "microservice",
+        "java",
+        "node",
+        "react",
+        "kubernetes",
+        "docker",
+        "deploy"
+      ],
+      "components": [
+        "Backend",
+        "Frontend",
+        "API",
+        "Infrastructure"
+      ],
+      "projects": [
+        "PROJ",
+        "DEV",
+        "SDLC"
+      ]
+    }
+  },
+  "pipelines": {
+    "salesforce": {
+      "description": "Pipelines to run for Salesforce-related Jira issues",
+      "pipeline_ids": [
+        "PASTE_SALESFORCE_PIPELINE_ID_1",
+        "PASTE_SALESFORCE_PIPELINE_ID_2"
+      ],
+      "pipeline_names": [
+        "Salesforce-Deployment-Pipeline",
+        "Salesforce-Test-Pipeline"
+      ]
+    },
+    "sdlc": {
+      "description": "Pipelines to run for SDLC-related Jira issues",
+      "pipeline_ids": [
+        "PASTE_SDLC_PIPELINE_ID_1",
+        "PASTE_SDLC_PIPELINE_ID_2"
+      ],
+      "pipeline_names": [
+        "SDLC-Build-Pipeline",
+        "SDLC-Deploy-Pipeline"
+      ]
+    }
+  },
+  "settings": {
+    "auto_trigger": true,
+    "notify_on_completion": true,
+    "wait_for_pr_merge": false
+  }
+}

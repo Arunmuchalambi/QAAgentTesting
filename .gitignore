@@ -1,7 +1,21 @@
+# Credentials / secrets (never commit)
 .env
+.env.*
+!.env.example
 credentials.env
+**/credentials*.json
 google_credentials.json
+**/google_credentials*.json
 slack_config.json
+*.pem
+*.p12
+*.key
+id_rsa
+id_rsa.pub
+!**/*.example.*
+!**/*.example.json
+!**/.github/**
+# Runtime / local
 *.log
 __pycache__/
 venv/
@@ -11,7 +25,12 @@ generated_tests/
 *.pyc
 .DS_Store
 .pytest_cache/
+processed_prs_tracking.json
+
+# Nested qa-agent paths
 qa-agent/.env
+qa-agent/.env.*
+!qa-agent/env.example
 qa-agent/credentials.env
 qa-agent/google_credentials.json
 qa-agent/slack_config.json
@@ -21,3 +40,4 @@ qa-agent/generated_tests/
 qa-agent/.pytest_cache/
 qa-agent/*.log
 qa-agent/venv/
+qa-agent/processed_prs_tracking.json

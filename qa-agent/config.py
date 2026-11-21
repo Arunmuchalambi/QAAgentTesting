@@ -3,7 +3,7 @@ Configuration management for QA Agent
 """
 
 import os
-from typing import List, Optional
+from typing import ClassVar, Dict, List, Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from dotenv import load_dotenv
@@ -57,14 +57,75 @@ class GitHubConfig(BaseSettings):
         return []
 
 
-class OpenAIConfig(BaseSettings):
-    """OpenAI configuration settings"""
-    api_key: str = Field(default="", alias="OPENAI_API_KEY")
-    model: str = Field(default="gpt-4", alias="OPENAI_MODEL")
+class LLMConfig(BaseSettings):
+    """LLM configuration (OpenAI-compatible providers: gemini, groq, openai)"""
+    provider: str = Field(default="gemini", alias="LLM_PROVIDER")
+    api_key: str = Field(default="", alias="LLM_API_KEY")
+    # Backward-compatible aliases still accepted via env fallbacks in Settings
+    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
+    groq_api_key: str = Field(default="", alias="GROQ_API_KEY")
+    model: str = Field(default="", alias="LLM_MODEL")
+    openai_model: str = Field(default="", alias="OPENAI_MODEL")
+    base_url: str = Field(default="", alias="LLM_BASE_URL")
 
     class Config:
         env_file = ".env"
         extra = "ignore"
+
+    PROVIDER_DEFAULTS: ClassVar[Dict[str, Dict[str, str]]] = {
+        "gemini": {
+            "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+            "model": "gemini-flash-lite-latest",
+        },
+        "groq": {
+            "base_url": "https://api.groq.com/openai/v1",
+            "model": "llama-3.3-70b-versatile",
+        },
+        "openai": {
+            "base_url": "",
+            "model": "gpt-4o",
+        },
+    }
+
+    @property
+    def resolved_provider(self) -> str:
+        return (self.provider or "gemini").strip().lower()
+
+    @property
+    def resolved_api_key(self) -> str:
+        provider = self.resolved_provider
+        if self.api_key:
+            return self.api_key
+        if provider == "gemini":
+            return self.gemini_api_key or self.openai_api_key
+        if provider == "groq":
+            return self.groq_api_key or self.openai_api_key
+        return self.openai_api_key or self.api_key
+
+    @property
+    def resolved_model(self) -> str:
+        if self.model:
+            return self.model
+        if self.openai_model and self.resolved_provider == "openai":
+            return self.openai_model
+        return self.PROVIDER_DEFAULTS.get(self.resolved_provider, {}).get("model", "gemini-2.0-flash")
+
+    @property
+    def resolved_base_url(self) -> Optional[str]:
+        if self.base_url:
+            return self.base_url
+        default = self.PROVIDER_DEFAULTS.get(self.resolved_provider, {}).get("base_url", "")
+        return default or None
+
+    @property
+    def supports_json_mode(self) -> bool:
+        model = self.resolved_model.lower()
+        provider = self.resolved_provider
+        if provider == "openai":
+            return any(x in model for x in ["gpt-4-turbo", "gpt-4o", "gpt-3.5-turbo"])
+        # Gemini OpenAI-compat and Groq generally accept json_object
+        return provider in {"gemini", "groq"}
 
 
 class AgentConfig(BaseSettings):
@@ -99,7 +160,9 @@ class Settings:
     def __init__(self):
         self.jira = JiraConfig()
         self.github = GitHubConfig()
-        self.openai = OpenAIConfig()
+        self.llm = LLMConfig()
+        # Backward-compatible alias used by existing modules
+        self.openai = self.llm
         self.agent = AgentConfig()
 
     def validate(self) -> List[str]:
@@ -116,8 +179,8 @@ class Settings:
             errors.append("GITHUB_TOKEN is required")
         if not self.github.repo:
             errors.append("GITHUB_REPO is required")
-        if not self.openai.api_key:
-            errors.append("OPENAI_API_KEY is required")
+        if not self.llm.resolved_api_key:
+            errors.append("LLM_API_KEY (or GEMINI_API_KEY / GROQ_API_KEY / OPENAI_API_KEY) is required")
             
         return errors
 

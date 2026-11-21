@@ -342,6 +342,9 @@ Press Ctrl+C to stop.
         self.pr_check_thread.start()
         
         console.print("[dim]PR checking enabled for QAAgentTesting repo[/dim]")
+
+        # Process recent backlog once at startup (not only issues created in last 5m)
+        self._seed_recent_unprocessed_issues()
         
         # Main polling loop
         try:
@@ -352,6 +355,42 @@ Press Ctrl+C to stop.
         except KeyboardInterrupt:
             console.print("\n\n[yellow]👋 Stopping agent...[/yellow]")
             self._show_summary()
+
+    def _enqueue_issue(self, issue_key: str, summary: str, reason: str = "NEW ISSUE"):
+        """Add an issue to the processing queue if not already seen this session."""
+        if issue_key in self.processed_issues:
+            return False
+        self.processed_issues.add(issue_key)
+        self.stats["issues_detected"] += 1
+        self.issue_queue.put({
+            "key": issue_key,
+            "summary": summary
+        })
+        console.print(f"\n[bold green]🆕 {reason} DETECTED![/bold green]")
+        console.print(f"   [cyan]{issue_key}[/cyan]: {summary}")
+        console.print(f"   [dim]Added to queue ({self.issue_queue.qsize()} pending)[/dim]\n")
+        return True
+
+    def _seed_recent_unprocessed_issues(self):
+        """Queue recent parent issues that do not yet have a QA Agent subtask."""
+        try:
+            jql = f'''
+                project = {settings.jira.project_key}
+                AND created >= -30d
+                AND issuetype != Sub-task
+                ORDER BY created DESC
+            '''
+            issues = self.jira.search_issues(jql, max_results=20)
+            console.print(f"[dim]Startup scan: {len(issues)} recent parent issue(s) in {settings.jira.project_key}[/dim]")
+            for issue in issues:
+                existing = self.jira.find_qa_agent_subtask(issue.key)
+                if existing:
+                    self.processed_issues.add(issue.key)
+                    console.print(f"[dim]   skip {issue.key} (already has {existing})[/dim]")
+                    continue
+                self._enqueue_issue(issue.key, issue.fields.summary, reason="BACKLOG ISSUE")
+        except Exception as e:
+            logger.error(f"Error seeding recent issues: {e}")
     
     def _check_for_new_issues(self):
         """Check for newly created issues"""
@@ -365,21 +404,10 @@ Press Ctrl+C to stop.
                 ORDER BY created ASC
             '''
             
-            issues = self.jira.client.search_issues(jql, maxResults=50)
+            issues = self.jira.search_issues(jql, max_results=50)
             
             for issue in issues:
-                if issue.key not in self.processed_issues:
-                    self.processed_issues.add(issue.key)
-                    self.stats["issues_detected"] += 1
-                    
-                    self.issue_queue.put({
-                        "key": issue.key,
-                        "summary": issue.fields.summary
-                    })
-                    
-                    console.print(f"\n[bold green]🆕 NEW ISSUE DETECTED![/bold green]")
-                    console.print(f"   [cyan]{issue.key}[/cyan]: {issue.fields.summary}")
-                    console.print(f"   [dim]Added to queue ({self.issue_queue.qsize()} pending)[/dim]\n")
+                self._enqueue_issue(issue.key, issue.fields.summary, reason="NEW ISSUE")
                     
         except Exception as e:
             logger.error(f"Error checking for new issues: {e}")
@@ -986,7 +1014,7 @@ h3. 📝 What Changed in This PR
                 AND issuetype != Sub-task
                 ORDER BY created DESC
             '''
-            issues = self.jira.client.search_issues(jql, maxResults=20)
+            issues = self.jira.search_issues(jql, max_results=20)
             
             for issue in issues:
                 if issue.key not in self.processed_prs:

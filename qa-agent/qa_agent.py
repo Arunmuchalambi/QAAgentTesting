@@ -1,6 +1,6 @@
 """
 QA Agent - Test Case Generator
-Uses OpenAI GPT-4 to generate comprehensive test cases
+Uses an OpenAI-compatible LLM (Gemini free tier by default, also Groq/OpenAI)
 Enhanced with QA Platform Knowledge
 """
 
@@ -95,24 +95,35 @@ class QAAgent:
     """AI-powered QA Agent for generating test cases"""
     
     def __init__(self):
-        self.config = settings.openai
+        self.config = settings.llm
         self._client: Optional[OpenAI] = None
         self.knowledge = get_product_knowledge()  # product knowledge base
     
     def connect(self) -> bool:
-        """Initialize OpenAI client"""
+        """Initialize OpenAI-compatible LLM client (Gemini/Groq/OpenAI)"""
         try:
-            self._client = OpenAI(api_key=self.config.api_key)
-            # Test connection with a simple request
-            logger.info(f"✅ OpenAI client initialized with model: {self.config.model}")
+            api_key = self.config.resolved_api_key
+            if not api_key:
+                raise ValueError("Missing LLM API key for provider " + self.config.resolved_provider)
+
+            kwargs = {"api_key": api_key}
+            base_url = self.config.resolved_base_url
+            if base_url:
+                kwargs["base_url"] = base_url
+
+            self._client = OpenAI(**kwargs)
+            logger.info(
+                f"✅ LLM client initialized "
+                f"(provider={self.config.resolved_provider}, model={self.config.resolved_model})"
+            )
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to initialize OpenAI client: {e}")
+            logger.error(f"❌ Failed to initialize LLM client: {e}")
             return False
     
     @property
     def client(self) -> OpenAI:
-        """Get the OpenAI client"""
+        """Get the LLM client"""
         if self._client is None:
             self.connect()
         return self._client
@@ -142,9 +153,7 @@ class QAAgent:
             return None
         
         try:
-            # Use gpt-4-turbo or gpt-4o for JSON mode support, fallback for older models
-            model = self.config.model
-            supports_json_mode = any(x in model for x in ['gpt-4-turbo', 'gpt-4o', 'gpt-3.5-turbo'])
+            model = self.config.resolved_model
             
             request_params = {
                 "model": model,
@@ -157,7 +166,7 @@ class QAAgent:
             }
             
             # Only add response_format for models that support it
-            if supports_json_mode:
+            if self.config.supports_json_mode:
                 request_params["response_format"] = {"type": "json_object"}
             
             response = self.client.chat.completions.create(**request_params)

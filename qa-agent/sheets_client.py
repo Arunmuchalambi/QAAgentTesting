@@ -30,18 +30,13 @@ class SheetsClient:
         "Subtask ID": "F",
     }
     
-    DEFAULT_SPREADSHEET_ID = "19k74D12KsfgtD9Y_DDNgZqyTqkfTaJazlAm59VJSphg"
-
     def __init__(
         self,
         spreadsheet_id: str = None,
         credentials_path: str = None
     ):
-        self.spreadsheet_id = (
-            spreadsheet_id
-            or os.getenv("GOOGLE_SHEET_ID")
-            or self.DEFAULT_SPREADSHEET_ID
-        )
+        # Never hardcode sheet IDs or credentials in source; use env / local files only
+        self.spreadsheet_id = spreadsheet_id or os.getenv("GOOGLE_SHEET_ID", "")
         self.credentials_path = credentials_path or self._find_credentials()
         self.client = None
         self.sheet = None
@@ -63,6 +58,10 @@ class SheetsClient:
     def _connect(self):
         if not SHEETS_AVAILABLE:
             logger.error("Google Sheets libraries not available")
+            return
+
+        if not self.spreadsheet_id:
+            logger.warning("GOOGLE_SHEET_ID not set; Sheets integration disabled")
             return
         
         if not os.path.exists(self.credentials_path):

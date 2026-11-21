@@ -6,6 +6,8 @@ Handles connection to Jira and fetching story/task details
 import re
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
+import requests
+from requests.auth import HTTPBasicAuth
 from jira import JIRA
 from loguru import logger
 
@@ -86,11 +88,50 @@ class JiraClient:
             logger.error(f"Failed to fetch issue {issue_key}: {e}")
             return None
     
+    def search_issues(self, jql: str, max_results: int = 50):
+        """Search issues via Jira Cloud /rest/api/3/search/jql.
+
+        The legacy /rest/api/2/search endpoint used by jira.search_issues()
+        has been removed (HTTP 410). This wrapper uses the replacement API
+        and returns jira Issue objects for compatibility.
+        """
+        url = f"{self.config.server.rstrip('/')}/rest/api/3/search/jql"
+        auth = HTTPBasicAuth(self.config.email, self.config.api_token)
+        payload = {
+            "jql": " ".join(jql.split()),
+            "maxResults": max_results,
+            "fields": [
+                "summary", "description", "status", "issuetype",
+                "assignee", "reporter", "labels", "components",
+                "created", "updated", "parent", "project"
+            ],
+        }
+        response = requests.post(
+            url,
+            json=payload,
+            auth=auth,
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            timeout=30,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        issues = []
+        for item in data.get("issues", []):
+            key = item.get("key")
+            if not key:
+                continue
+            try:
+                issues.append(self.client.issue(key))
+            except Exception as e:
+                logger.warning(f"Could not load issue {key} after search: {e}")
+        return issues
+
     def get_recent_issues(self, max_results: int = 10) -> List[JiraIssue]:
         """Get recently created issues from the project"""
         try:
             jql = f'project = {self.config.project_key} ORDER BY created DESC'
-            issues = self.client.search_issues(jql, maxResults=max_results)
+            issues = self.search_issues(jql, max_results=max_results)
             return [self._parse_issue(issue) for issue in issues]
         except Exception as e:
             logger.error(f"Failed to fetch recent issues: {e}")
@@ -105,7 +146,7 @@ class JiraClient:
                 AND (status = "In Review" OR status = "Code Review" OR labels = "has-pr")
                 ORDER BY updated DESC
             '''
-            issues = self.client.search_issues(jql, maxResults=max_results)
+            issues = self.search_issues(jql, max_results=max_results)
             return [self._parse_issue(issue) for issue in issues]
         except Exception as e:
             logger.error(f"Failed to fetch issues with PRs: {e}")
@@ -235,7 +276,7 @@ _Generated automatically by QA Agent_
         try:
             # Search for subtasks with "QA Agent" in summary
             jql = f'parent = {parent_key} AND summary ~ "QA Agent"'
-            issues = self.client.search_issues(jql, maxResults=1)
+            issues = self.search_issues(jql, max_results=1)
             
             if issues:
                 subtask_key = issues[0].key

@@ -10,10 +10,14 @@ test_reports/
 generated_tests/
 *.pyc
 .DS_Store
+.pytest_cache/
 qa-agent/.env
 qa-agent/credentials.env
 qa-agent/google_credentials.json
 qa-agent/slack_config.json
 qa-agent/__pycache__/
 qa-agent/test_reports/
+qa-agent/generated_tests/
+qa-agent/.pytest_cache/
 qa-agent/*.log
+qa-agent/venv/

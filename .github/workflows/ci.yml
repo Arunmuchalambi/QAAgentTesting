@@ -1,0 +1,74 @@
+name: CI Release Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-gate:
+    name: Release Gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: qa-agent
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: qa-agent/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Syntax check (compileall)
+        run: python -m compileall -q .
+
+      - name: Unit / smoke tests
+        env:
+          # Dummy values so config/modules import without real secrets
+          JIRA_SERVER: https://example.atlassian.net
+          JIRA_EMAIL: ci@example.com
+          JIRA_API_TOKEN: dummy-token
+          JIRA_PROJECT_KEY: ATM
+          GITHUB_TOKEN: dummy-github-token
+          GITHUB_REPO: Arunmuchalambi/QAAgentTesting
+          GITHUB_ORGANIZATIONS: Arunmuchalambi
+          LLM_PROVIDER: gemini
+          GEMINI_API_KEY: dummy-gemini-key
+          LLM_MODEL: gemini-flash-lite-latest
+          GOOGLE_SHEET_ID: dummy-sheet-id
+        run: pytest -q tests
+
+      - name: Config validation smoke
+        env:
+          JIRA_SERVER: https://example.atlassian.net
+          JIRA_EMAIL: ci@example.com
+          JIRA_API_TOKEN: dummy-token
+          JIRA_PROJECT_KEY: ATM
+          GITHUB_TOKEN: dummy-github-token
+          GITHUB_REPO: Arunmuchalambi/QAAgentTesting
+          LLM_PROVIDER: gemini
+          GEMINI_API_KEY: dummy-gemini-key
+        run: |
+          python - <<'PY'
+          from config import settings
+          errors = settings.validate()
+          assert not errors, errors
+          assert settings.llm.resolved_provider == "gemini"
+          print("config ok:", settings.llm.resolved_model)
+          PY
